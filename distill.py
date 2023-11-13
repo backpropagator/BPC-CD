@@ -348,15 +348,15 @@ def main(args):
         start_epoch = np.random.randint(0, args.max_start_epoch)
         starting_params = expert_trajectory[start_epoch]
 
-        target_params = expert_trajectory[start_epoch+args.expert_epochs]
+        target_params = expert_trajectory[start_epoch]
         
         
-        student_params = [torch.cat([p.data.to(args.device).reshape(-1) for p in starting_params], 0).requires_grad_(True)]
+        student_params = [torch.cat([p.data.to(args.device).reshape(-1) for p in starting_params], 0).requires_grad_(True)] + torch.randn_like(student_params[-1]) * args.noise_scale
         target_train_param = torch.cat([p.data.to(args.device).reshape(-1) for p in target_params], 0).requires_grad_(True)
         target_params = torch.cat([p.data.to(args.device).reshape(-1) for p in target_params], 0)
 
 
-        starting_params = torch.cat([p.data.to(args.device).reshape(-1) for p in starting_params], 0)
+        starting_params = torch.cat([p.data.to(args.device).reshape(-1) for p in starting_params], 0) 
 
         
         syn_images = image_syn 
@@ -449,11 +449,9 @@ def main(args):
         if args.energy == 'focal':
             pos_energy = criterion(m(pos_logit), this_y)
             neg_energy = criterion(m(neg_logit), this_y)
-            meta_loss = criterion(m(student_net(image_real, flat_param=student_param)), label_real)
         else:
             pos_energy = criterion(pos_logit, this_y)
             neg_energy = criterion(neg_logit, this_y)
-            meta_loss = criterion(student_net(image_real, flat_param=student_param), label_real)
 
         
         if args.logsumexp:
@@ -461,9 +459,9 @@ def main(args):
             neg_energy = neg_energy - torch.logsumexp(neg_logit,1).mean()
         
         if args.match_trajectory:
-            grand_loss = pos_energy - neg_energy + 10*meta_loss + param_loss
+            grand_loss = pos_energy - neg_energy +  param_loss
         else:
-            grand_loss = pos_energy - neg_energy + 10*meta_loss
+            grand_loss = pos_energy - neg_energy 
 
 
 
@@ -533,6 +531,9 @@ if __name__ == '__main__':
     parser.add_argument('--expert_epochs', type=int, default=3, help='how many expert epochs the target params are')
     parser.add_argument('--syn_steps', type=int, default=20, help='how many steps to take on synthetic data')
     parser.add_argument('--max_start_epoch', type=int, default=25, help='max epoch we can start at')
+    parser.add_argument('--mwt', type=int, default=0.0, help='meta-weight') 
+    parser.add_argument('--noise_scale', type=int, default=0.001, help='noise variance for variational approximation')
+
 
     parser.add_argument('--zca', action='store_true', help="do ZCA whitening")
 
